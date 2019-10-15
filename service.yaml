@@ -280,3 +280,9 @@ Outputs:
     Value: !Ref Cluster
     Export:
       Name: ClusterECS
+      
+  ExporttopipelineRep:
+    Description: Repository to exoprt
+    Value: !Ref Repository
+    Export:
+      Name: Rep
