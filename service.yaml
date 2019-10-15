@@ -1,0 +1,282 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  GitHubUser:
+    Type: String
+    Description: Your username on GitHub.
+  GitHubRepo:
+    Type: String
+    Default: smerf
+    Description: The repo name of the sample service.
+  GitHubBranch:
+    Type: String
+    Default: master
+    Description: The branch of the repo to continuously deploy.
+  GitHubToken:
+    Type: String
+    NoEcho: true
+    Description: 'Token for the user specified above. (https://github.com/settings/tokens)
+
+      '
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterLabels:
+      GitHubUser:
+        default: User
+      GitHubRepo:
+        default: Repo
+      GitHubBranch:
+        default: Branch
+      GitHubToken:
+        default: Personal Access Token
+    ParameterGroups:
+    - Label:
+        default: GitHub Configuration
+      Parameters:
+      - GitHubRepo
+      - GitHubBranch
+      - GitHubUser
+      - GitHubToken
+Resources:
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName:
+        Ref: AWS::StackName
+  Repository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+  FargateService:
+    Type: AWS::ECS::Service
+    DependsOn: LoadBalancerListener
+    Properties:
+      Cluster:
+        Ref: Cluster
+      DesiredCount: 1
+      TaskDefinition:
+        Ref: TaskDefinition
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - Ref: SecurityGroup
+          Subnets:
+          - Ref: Subnet1
+          - Ref: Subnet2
+      LoadBalancers:
+      - ContainerName: smerf
+        ContainerPort: 8800
+        TargetGroupArn:
+          Ref: TargetGroup
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family:
+        Fn::Sub: ${AWS::StackName}-smerf
+      RequiresCompatibilities:
+      - FARGATE
+      Memory: 512
+      Cpu: 256
+      NetworkMode: awsvpc
+      ExecutionRoleArn:
+        Ref: TaskExecutionRole
+      ContainerDefinitions:
+      - Name: smerf
+        Image: amazon/amazon-ecs-sample
+        Essential: true
+        PortMappings:
+        - ContainerPort: 8800
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-region:
+              Ref: AWS::Region
+            awslogs-group:
+              Ref: LogGroup
+            awslogs-stream-prefix:
+              Ref: AWS::StackName
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        Fn::Sub: ${AWS::StackName}-alb
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        IpProtocol: TCP
+        FromPort: 8800
+        ToPort: 8800
+      VpcId:
+        Ref: VPC
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: LoadBalancer
+    Properties:
+      VpcId:
+        Ref: VPC
+      Port: 8800
+      Protocol: HTTP
+      Matcher:
+        HttpCode: 200-299
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      TargetType: ip
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: 30
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /ecs/${AWS::StackName}
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+      - Ref: Subnet1
+      - Ref: Subnet2
+      SecurityGroups:
+      - Ref: SecurityGroup
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: LoadBalancer
+      Port: 8800
+      Protocol: HTTP
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: TargetGroup
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn:
+        Ref: LoadBalancerListener
+      Priority: 1
+      Conditions:
+      - Field: path-pattern
+        Values:
+        - /
+      Actions:
+      - TargetGroupArn:
+          Ref: TargetGroup
+        Type: forward
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 30.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId:
+        Ref: InternetGateway
+      VpcId:
+        Ref: VPC
+  Subnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone:
+        Fn::Select:
+        - 0
+        - Fn::GetAZs: ''
+      MapPublicIpOnLaunch: true
+      CidrBlock: 30.0.0.0/24
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${AWS::StackName} (Public)
+  Subnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone:
+        Fn::Select:
+        - 1
+        - Fn::GetAZs: ''
+      MapPublicIpOnLaunch: true
+      CidrBlock: 30.0.1.0/24
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Sub: ${AWS::StackName} (Public)
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value:
+          Ref: AWS::StackName
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+  Subnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: RouteTable
+      SubnetId:
+        Ref: Subnet1
+  Subnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: RouteTable
+      SubnetId:
+        Ref: Subnet2
+Outputs:
+  ServiceUrl:
+    Description: The sample service that is being continuously deployed.
+    Value:
+      Fn::Sub: http://${LoadBalancer.DNSName}
+
+  ExporttopipelineService:
+    Description: ecs service to exoprt
+    Value: !Ref FargateService
+    Export:
+      Name: ServiceECS
+
+  ExporttopipelineCluster:
+    Description: ecs cluster to exoprt
+    Value: !Ref Cluster
+    Export:
+      Name: ClusterECS
