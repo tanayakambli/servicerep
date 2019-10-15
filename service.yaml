@@ -123,7 +123,7 @@ Resources:
         Ref: VPC
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    DependsOn: LoadBalancer
+    DependsOn: LoadBalancer1
     Properties:
       VpcId:
         Ref: VPC
@@ -145,7 +145,7 @@ Resources:
     Properties:
       LogGroupName:
         Fn::Sub: /ecs/${AWS::StackName}
-  LoadBalancer:
+  LoadBalancer1:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Subnets:
@@ -157,7 +157,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       LoadBalancerArn:
-        Ref: LoadBalancer
+        Ref: LoadBalancer1
       Port: 8800
       Protocol: HTTP
       DefaultActions:
