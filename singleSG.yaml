@@ -16,7 +16,7 @@ Resources:
       SecurityGroupIngress:
         - Description: FreiburgBuilding10 (https)
           IpProtocol: tcp
-          FromPort: !Ref Port
+          FromPort: !Ref Portxxxx
           ToPort: !Ref Port
           SourceSecurityGroupId:
             Fn::GetAtt: [SG2, GroupId]
