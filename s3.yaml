@@ -1,0 +1,19 @@
+Parameters:
+
+  bucketname:
+    Type: String
+
+Resources:
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Ref bucketname
+
+  myStackWithParams:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/childstack-tanaya-accb/s3child.yaml"
+      Parameters:
+        bucketname1: childbucket-tanaya-hello
