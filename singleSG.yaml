@@ -16,7 +16,7 @@ Resources:
       SecurityGroupIngress:
         - Description: FreiburgBuilding10 (https)
           IpProtocol: tcp
-          FromPort: !Ref Portxxxx
+          FromPort: !Ref Port
           ToPort: !Ref Port
           SourceSecurityGroupId:
             Fn::GetAtt: [SG2, GroupId]
@@ -30,7 +30,7 @@ Resources:
   myStackWithParams:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: "https://s3.amazonaws.com/childstack-tanaya/insatnce.yaml"
+      TemplateURL: "https://s3.amazonaws.com/childstack-tanaya-accb/insatnce.yaml"
       Parameters:
         InstanceType: "t2.micro"
         AMI: "ami-0f96495a064477ffb"
