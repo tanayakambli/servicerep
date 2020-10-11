@@ -9,7 +9,7 @@ Resources:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
     Properties:
-      BucketName: !Ref bucketname
+      BucketName: !Ref bucketname2
 
   myStackWithParams:
     Type: AWS::CloudFormation::Stack
