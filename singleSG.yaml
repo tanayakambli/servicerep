@@ -1,0 +1,36 @@
+Parameters:
+
+  Port:
+    Type: Number
+    Default: 443
+    AllowedValues:
+      - 443
+      - 80
+
+Resources:
+
+  EsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: first sg
+      SecurityGroupIngress:
+        - Description: FreiburgBuilding10 (https)
+          IpProtocol: tcp
+          FromPort: !Ref Port
+          ToPort: !Ref Port
+          SourceSecurityGroupId:
+            Fn::GetAtt: [SG2, GroupId]
+
+
+  SG2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: second SG
+
+  myStackWithParams:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/childstack-tanaya/insatnce.yaml"
+      Parameters:
+        InstanceType: "t2.micro"
+        AMI: "ami-0f96495a064477ffb"
